@@ -1,0 +1,6 @@
+name = "transyt"
+main = "build/worker/shim.mjs"
+compatibility_date = "2026-01-01"
+
+[build]
+command = "cargo install worker-build --locked --version 0.9.0 && worker-build --release"
