@@ -203,6 +203,48 @@ async fn retrieval_errors_are_explicit() {
 }
 
 #[tokio::test]
+async fn malformed_caption_metadata_never_reaches_the_network() {
+    for (url, expected) in [
+        (Value::Null, "Missing caption URL"),
+        (json!("not a URL"), "Invalid caption URL"),
+        (
+            json!("http://www.youtube.com/api/timedtext"),
+            "Unexpected caption URL destination",
+        ),
+        (
+            json!("https://www.youtube.com/other"),
+            "Unexpected caption URL destination",
+        ),
+        (
+            json!("https://www.youtube.com:8443/api/timedtext"),
+            "Unexpected caption URL destination",
+        ),
+        (
+            json!("https://user@www.youtube.com/api/timedtext"),
+            "Unexpected caption URL destination",
+        ),
+        (
+            json!("https://:password@www.youtube.com/api/timedtext"),
+            "Unexpected caption URL destination",
+        ),
+    ] {
+        let mut metadata = player();
+        metadata["captions"]["playerCaptionsTracklistRenderer"]["captionTracks"][0]["baseUrl"] =
+            url;
+        let http = fixture(metadata, "must not be requested");
+        assert_eq!(
+            fetch(&http, "abcdefghijk", &[], None).await.unwrap_err(),
+            expected
+        );
+        assert_eq!(
+            http.0.lock().unwrap().len(),
+            1,
+            "caption request must not be sent"
+        );
+    }
+}
+
+#[tokio::test]
 async fn mcp_discovery_and_errors() {
     let http = Fixture(Mutex::new(vec![]));
     for method in ["initialize", "ping", "tools/list"] {
